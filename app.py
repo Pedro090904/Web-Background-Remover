@@ -1,44 +1,38 @@
-import streamlit as st
+from flask import Flask, request, send_file
+from flask_cors import CORS
 from rembg import remove
 from PIL import Image
-from io import BytesIO
+import io
 
-# 1. Configuração da Página
-st.set_page_config(page_title="Removedor de Fundo", page_icon="✂️")
+app = Flask(__name__)
+CORS(app) # Permite que o navegador acesse a API sem bloquear
 
-st.title("✂️ Removedor de Fundo Mágico")
-st.write("Faça upload de uma imagem e veja a mágica acontecer.")
+@app.route('/')
+def index():
+    # Serve o arquivo HTML quando acessa a raiz
+    return send_file('index.html')
 
-# 2. O componente de Upload (Drag & Drop)
-uploaded_file = st.file_uploader("Escolha uma imagem (JPG ou PNG)", type=["jpg", "jpeg", "png"])
+@app.route('/remover-fundo', methods=['POST'])
+def remover_fundo():
+    if 'image' not in request.files:
+        return 'Nenhuma imagem enviada', 400
+    
+    file = request.files['image']
+    
+    # 1. Processar a imagem na memória (RAM)
+    # Isso é ótimo porque não lota seu HD com arquivos temporários
+    input_image = Image.open(file.stream)
+    
+    # 2. Remover o fundo
+    output_image = remove(input_image)
+    
+    # 3. Preparar para devolver (converter para bytes)
+    img_io = io.BytesIO()
+    output_image.save(img_io, 'PNG')
+    img_io.seek(0)
+    
+    # 4. Devolver a imagem pronta para o navegador
+    return send_file(img_io, mimetype='image/png')
 
-if uploaded_file is not None:
-    # Mostra a imagem original
-    st.subheader("Imagem Original")
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Original", use_column_width=True)
-
-    # Botão para processar
-    if st.button("Remover Fundo"):
-        with st.spinner("A IA está trabalhando..."):
-            
-            # 3. A Mágica do Rembg
-            # Precisamos converter para bytes para a IA processar
-            output_image = remove(image)
-            
-            # Mostra o resultado
-            st.subheader("Resultado")
-            st.image(output_image, caption="Sem Fundo", use_column_width=True)
-
-            # 4. Botão de Download
-            # Convertendo a imagem processada de volta para bytes para download
-            buf = BytesIO()
-            output_image.save(buf, format="PNG")
-            byte_im = buf.getvalue()
-
-            st.download_button(
-                label="Baixar Imagem PNG",
-                data=byte_im,
-                file_name="sem_fundo.png",
-                mime="image/png"
-            )
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

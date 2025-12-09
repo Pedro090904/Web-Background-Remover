@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Background Remover</title>
+    <style>
+        /* CSS Básico para ficar bonito */
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 400px; }
+        .drop-zone { border: 2px dashed #ccc; border-radius: 10px; padding: 40px; cursor: pointer; transition: 0.3s; margin-bottom: 20px; }
+        .drop-zone:hover { border-color: #667eea; background-color: #f8f9fa; }
+        .btn { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; }
+        .btn:disabled { background: #ccc; }
+        img { max-width: 100%; margin-top: 20px; border-radius: 5px; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC440bZFzAAAAC1JREFUOE9jTKs9/5+BgYHw////DAwMcDRQA2LAAEco041oNIyG0TAahgPQAAcACg55S09l2XAAAAAASUVORK5CYII='); } /* Fundo xadrez para ver a transparência */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>✂️ Removedor de Fundo</h2>
+    
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <p>Arraste uma imagem ou clique aqui</p>
+        <input type="file" id="fileInput" hidden accept="image/*">
+    </div>
+
+    <div id="resultArea" class="hidden">
+        <p>Resultado:</p>
+        <img id="resultImage" src="" alt="Resultado">
+        <br><br>
+        <button class="btn" onclick="location.reload()">Nova Imagem</button>
+    </div>
+
+    <p id="status" style="color: gray; font-size: 0.9rem;"></p>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const status = document.getElementById('status');
+    const resultArea = document.getElementById('resultArea');
+    const resultImage = document.getElementById('resultImage');
+
+    // Quando o usuário seleciona um arquivo
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Feedback visual
+        status.innerText = "Processando... aguarde (pode demorar na 1ª vez)";
+        dropZone.style.opacity = "0.5";
+
+        // Prepara os dados para enviar para o Python
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            // Chama a nossa API Python (fetch)
+            const response = await fetch('/remover-fundo', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // Converte a resposta (blob) em uma URL de imagem
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                
+                // Mostra o resultado
+                resultImage.src = imageUrl;
+                dropZone.classList.add('hidden');
+                resultArea.classList.remove('hidden');
+                status.innerText = "";
+            } else {
+                status.innerText = "Erro ao processar imagem.";
+            }
+        } catch (error) {
+            console.error(error);
+            status.innerText = "Erro de conexão com o servidor.";
+        }
+    });
+</script>
+
+</body>
+</html>
