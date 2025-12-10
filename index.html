@@ -5,82 +5,181 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Background Remover</title>
     <style>
-        /* CSS Básico para ficar bonito */
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 400px; }
-        .drop-zone { border: 2px dashed #ccc; border-radius: 10px; padding: 40px; cursor: pointer; transition: 0.3s; margin-bottom: 20px; }
-        .drop-zone:hover { border-color: #667eea; background-color: #f8f9fa; }
-        .btn { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%; }
-        .btn:disabled { background: #ccc; }
-        img { max-width: 100%; margin-top: 20px; border-radius: 5px; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC440bZFzAAAAC1JREFUOE9jTKs9/5+BgYHw////DAwMcDRQA2LAAEco041oNIyG0TAahgPQAAcACg55S09l2XAAAAAASUVORK5CYII='); } /* Fundo xadrez para ver a transparência */
-        .hidden { display: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        h2 { color: #333; margin-bottom: 10px; }
+        p { color: #666; font-size: 0.9rem; }
+
+        .drop-zone {
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #fafbfc;
+        }
+
+        /* Classe que será ativada via JS quando arrastar arquivo em cima */
+        .drop-zone.hover {
+            border-color: #667eea;
+            background-color: #eef2ff;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4); }
+
+        .preview-container { margin-top: 20px; display: none; }
+        img { max-width: 100%; border-radius: 8px; border: 1px solid #ddd; 
+              background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC440bZFzAAAAC1JREFUOE9jTKs9/5+BgYHw////DAwMcDRQA2LAAEco041oNIyG0TAahgPQAAcACg55S09l2XAAAAAASUVORK5CYII='); }
+        
+        .loading { color: #667eea; font-weight: bold; display: none; margin-top: 15px;}
+        .error { color: #e53e3e; font-size: 0.9rem; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>✂️ Removedor de Fundo</h2>
-    
-    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <p>Arraste uma imagem ou clique aqui</p>
+<div class="card">
+    <h2>✂️ Remover Fundo</h2>
+    <p>Arraste uma imagem JPG/PNG aqui ou clique para selecionar.</p>
+
+    <div class="drop-zone" id="dropZone">
+        <span style="font-size: 2rem;">☁️</span>
+        <p style="margin-top: 10px;">Solte a imagem aqui</p>
         <input type="file" id="fileInput" hidden accept="image/*">
     </div>
 
-    <div id="resultArea" class="hidden">
-        <p>Resultado:</p>
+    <div id="loading" class="loading">Processando... (Isso pode levar alguns segundos)</div>
+    <div id="errorMessage" class="error"></div>
+
+    <div id="resultArea" class="preview-container">
+        <p><strong>Resultado:</strong></p>
         <img id="resultImage" src="" alt="Resultado">
         <br><br>
-        <button class="btn" onclick="location.reload()">Nova Imagem</button>
+        <a id="downloadLink" class="btn" download="sem_fundo.png">Baixar Imagem</a>
+        <br><br>
+        <button class="btn" style="background: #cbd5e0; color: #333;" onclick="location.reload()">Nova Imagem</button>
     </div>
-
-    <p id="status" style="color: gray; font-size: 0.9rem;"></p>
 </div>
 
 <script>
-    const fileInput = document.getElementById('fileInput');
     const dropZone = document.getElementById('dropZone');
-    const status = document.getElementById('status');
+    const fileInput = document.getElementById('fileInput');
+    const loading = document.getElementById('loading');
     const resultArea = document.getElementById('resultArea');
     const resultImage = document.getElementById('resultImage');
+    const downloadLink = document.getElementById('downloadLink');
+    const errorMessage = document.getElementById('errorMessage');
 
-    // Quando o usuário seleciona um arquivo
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // Funções para manipular a aparência do Drag & Drop
+    // IMPORTANTE: preventDefault é obrigatório para o navegador permitir o "drop"
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
 
-        // Feedback visual
-        status.innerText = "Processando... aguarde (pode demorar na 1ª vez)";
-        dropZone.style.opacity = "0.5";
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-        // Prepara os dados para enviar para o Python
+    // Adiciona classe visual quando arrasta por cima
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('hover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('hover'), false);
+    });
+
+    // Quando soltar o arquivo
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    // Quando clicar na caixa
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    // Quando selecionar pelo menu de arquivos
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            uploadFile(files[0]);
+        }
+    }
+
+    async function uploadFile(file) {
+        // Limpa estados anteriores
+        errorMessage.style.display = 'none';
+        resultArea.style.display = 'none';
+        dropZone.style.opacity = '0.5';
+        dropZone.style.pointerEvents = 'none'; // Bloqueia cliques
+        loading.style.display = 'block';
+
         const formData = new FormData();
         formData.append('image', file);
 
         try {
-            // Chama a nossa API Python (fetch)
             const response = await fetch('/remover-fundo', {
                 method: 'POST',
                 body: formData
             });
 
             if (response.ok) {
-                // Converte a resposta (blob) em uma URL de imagem
                 const blob = await response.blob();
                 const imageUrl = URL.createObjectURL(blob);
                 
-                // Mostra o resultado
                 resultImage.src = imageUrl;
-                dropZone.classList.add('hidden');
-                resultArea.classList.remove('hidden');
-                status.innerText = "";
+                downloadLink.href = imageUrl;
+                
+                loading.style.display = 'none';
+                dropZone.style.display = 'none'; // Esconde a zona de drop
+                resultArea.style.display = 'block'; // Mostra o resultado
             } else {
-                status.innerText = "Erro ao processar imagem.";
+                throw new Error("Erro no processamento do servidor.");
             }
         } catch (error) {
             console.error(error);
-            status.innerText = "Erro de conexão com o servidor.";
+            loading.style.display = 'none';
+            dropZone.style.opacity = '1';
+            dropZone.style.pointerEvents = 'all';
+            errorMessage.innerText = "Falha ao remover fundo. Tente outra imagem.";
+            errorMessage.style.display = 'block';
         }
-    });
+    }
 </script>
 
 </body>
